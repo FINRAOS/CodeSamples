@@ -1,24 +1,10 @@
 package org.finra.samples;
 
-import static java.lang.String.format;
-
 import com.google.common.base.Charsets;
 import com.google.common.io.Resources;
 import com.googlecode.junittoolbox.ParallelRunner;
 import de.flapdoodle.embed.process.io.file.Files;
-import java.io.IOException;
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Statement;
-import java.util.Properties;
-import org.junit.After;
-import org.junit.AfterClass;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.*;
 import org.junit.runner.RunWith;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,9 +20,15 @@ import ru.yandex.qatools.embed.postgresql.config.PostgresConfig;
 import ru.yandex.qatools.embed.postgresql.config.RuntimeConfigBuilder;
 import ru.yandex.qatools.embed.postgresql.ext.SubdirTempDir;
 
+import java.io.IOException;
+import java.sql.*;
+import java.util.Properties;
+
+import static java.lang.String.format;
+
 @RunWith(ParallelRunner.class)
-public class PostgresEmbeddedTestParallel {
-  private static Logger LOGGER = LoggerFactory.getLogger(PostgresEmbeddedTestPureSQL.class);
+public class PostgresEmbeddedParallelTest {
+  private static Logger LOGGER = LoggerFactory.getLogger(PostgresEmbeddedSqlTest.class);
 
   private PostgresProcess postgres;
   private String url = null;
@@ -64,7 +56,9 @@ public class PostgresEmbeddedTestParallel {
 
   @AfterClass
   public static void removePostgres() {
-    exec.stop();
+    if (exec != null) {
+      exec.stop();
+    }
     Files.forceDelete(SubdirTempDir.defaultInstance().asFile());
   }
 
@@ -84,14 +78,7 @@ public class PostgresEmbeddedTestParallel {
     postgres = exec.start();
 
     Runtime.getRuntime().addShutdownHook(
-        new Thread(() -> {
-          try {
-            stopPostgres();
-          }
-          catch (IOException e) {
-            LOGGER.error("Error while stopping Postgres instance.");
-          }
-        })
+        new Thread(() -> stopPostgres())
     );
 
     url = format("jdbc:postgresql://%s:%s/%s",
@@ -104,8 +91,8 @@ public class PostgresEmbeddedTestParallel {
     properties.setProperty("password", config.credentials().password());
   }
 
-  public void stopPostgres() throws IOException {
-    if (postgres.isProcessRunning()) {
+  public void stopPostgres() {
+    if (postgres != null && postgres.isProcessRunning()) {
       postgres.stop();
     }
   }
@@ -139,7 +126,7 @@ public class PostgresEmbeddedTestParallel {
   }
 
   @Test
-  public void testOne() throws IOException, SQLException {
+  public void testOne() throws SQLException {
     try (Connection conn = DriverManager.getConnection(url, properties)) {
       try (Statement stmt = conn.createStatement()) {
         stmt.executeUpdate(
@@ -171,7 +158,7 @@ public class PostgresEmbeddedTestParallel {
   }
 
   @Test
-  public void testTwo() throws IOException, SQLException {
+  public void testTwo() throws SQLException {
     try (Connection conn = DriverManager.getConnection(url, properties)) {
       try (Statement stmt = conn.createStatement()) {
         stmt.executeUpdate(

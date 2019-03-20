@@ -2,25 +2,31 @@ package org.finra.samples;
 
 import com.google.common.base.Charsets;
 import com.google.common.io.Resources;
-import de.flapdoodle.embed.process.io.file.Files;
 import org.junit.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import ru.yandex.qatools.embed.postgresql.EmbeddedPostgres;
-import ru.yandex.qatools.embed.postgresql.ext.SubdirTempDir;
+import org.testcontainers.containers.PostgreSQLContainer;
 
 import java.io.IOException;
 import java.sql.*;
+import java.util.Properties;
 
-public class PostgresEmbeddedTest {
-  private static Logger LOGGER = LoggerFactory.getLogger(PostgresEmbeddedSqlTest.class);
+public class PostgresContainerTest {
+  private static Logger LOGGER = LoggerFactory.getLogger(PostgresContainerTest.class);
 
-  private static EmbeddedPostgres postgres;
+  private static PostgreSQLContainer postgres;
   private static String url = null;
+  private static Properties properties;
 
-  public static void startPostgres() throws IOException {
-    postgres = new EmbeddedPostgres(() -> "9.6.3-1");
-    url = postgres.start("localhost", 5433, "dbname", "username", "password");
+  public static void startPostgres() {
+    postgres = new PostgreSQLContainer("postgres:9.6.8");
+    postgres.start();
+
+    url = postgres.getJdbcUrl();
+
+    properties = new Properties();
+    properties.setProperty("user", postgres.getUsername());
+    properties.setProperty("password", postgres.getPassword());
 
     Runtime.getRuntime().addShutdownHook(
         new Thread(() -> stop())
@@ -28,25 +34,24 @@ public class PostgresEmbeddedTest {
   }
 
   public static void stopPostgres() {
-    if (postgres != null && postgres.getProcess().isPresent() && postgres.getProcess().get().isProcessRunning()) {
+    if (postgres != null) {
       postgres.stop();
+      postgres.close();
     }
-    Files.forceDelete(SubdirTempDir.defaultInstance().asFile());
   }
 
   @BeforeClass
-  public static void start() throws IOException {
+  public static void start() {
     startPostgres();
   }
 
-  @AfterClass
   public static void stop() {
     stopPostgres();
   }
 
   @Before
   public void setUp() throws IOException, SQLException {
-    try (Connection conn = DriverManager.getConnection(url)) {
+    try (Connection conn = DriverManager.getConnection(url, properties)) {
       try (Statement stmt = conn.createStatement()) {
         stmt.executeUpdate(Resources.toString(Resources.getResource("scripts/setUp.sql"), Charsets.UTF_8));
       }
@@ -55,7 +60,7 @@ public class PostgresEmbeddedTest {
 
   @After
   public void tearDown() throws IOException, SQLException {
-    try (Connection conn = DriverManager.getConnection(url)) {
+    try (Connection conn = DriverManager.getConnection(url, properties)) {
       try (Statement stmt = conn.createStatement()) {
         stmt.executeUpdate(Resources.toString(Resources.getResource("scripts/tearDown.sql"), Charsets.UTF_8));
       }
@@ -64,7 +69,7 @@ public class PostgresEmbeddedTest {
 
   @Test
   public void testOne() throws SQLException {
-    try (Connection conn = DriverManager.getConnection(url)) {
+    try (Connection conn = DriverManager.getConnection(url, properties)) {
       try (Statement stmt = conn.createStatement()) {
         stmt.executeUpdate(
             "INSERT INTO test_values VALUES\n"
@@ -96,7 +101,7 @@ public class PostgresEmbeddedTest {
 
   @Test
   public void testTwo() throws SQLException {
-    try (Connection conn = DriverManager.getConnection(url)) {
+    try (Connection conn = DriverManager.getConnection(url, properties)) {
       try (Statement stmt = conn.createStatement()) {
         stmt.executeUpdate(
             "INSERT INTO test_values VALUES\n"

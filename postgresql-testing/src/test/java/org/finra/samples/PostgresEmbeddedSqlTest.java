@@ -3,15 +3,7 @@ package org.finra.samples;
 import com.google.common.base.Charsets;
 import com.google.common.io.Resources;
 import de.flapdoodle.embed.process.io.file.Files;
-import java.io.IOException;
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Statement;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
+import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -21,9 +13,15 @@ import org.slf4j.LoggerFactory;
 import ru.yandex.qatools.embed.postgresql.EmbeddedPostgres;
 import ru.yandex.qatools.embed.postgresql.ext.SubdirTempDir;
 
+import java.io.IOException;
+import java.sql.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+
 @RunWith(Parameterized.class)
-public class PostgresEmbeddedTestPureSQL {
-  private static Logger LOGGER = LoggerFactory.getLogger(PostgresEmbeddedTestPureSQL.class);
+public class PostgresEmbeddedSqlTest {
+  private static Logger LOGGER = LoggerFactory.getLogger(PostgresEmbeddedSqlTest.class);
 
   private static EmbeddedPostgres postgres;
   private static String url = null;
@@ -49,8 +47,12 @@ public class PostgresEmbeddedTestPureSQL {
     );
   }
 
-  public static void stopPostgres() throws IOException {
-    postgres.stop();
+  @AfterClass
+  public static void stopPostgres() {
+    if (postgres != null && postgres.getProcess().isPresent() && postgres.getProcess().get().isProcessRunning()) {
+      postgres.stop();
+    }
+    Files.forceDelete(SubdirTempDir.defaultInstance().asFile());
   }
 
   public static void start() throws IOException, SQLException {
@@ -61,7 +63,6 @@ public class PostgresEmbeddedTestPureSQL {
   public static void stop() throws IOException, SQLException {
     tearDown();
     stopPostgres();
-    Files.forceDelete(SubdirTempDir.defaultInstance().asFile());
   }
 
   public static void setUp() throws IOException, SQLException {
@@ -115,8 +116,8 @@ public class PostgresEmbeddedTestPureSQL {
     return data;
   }
 
-  public PostgresEmbeddedTestPureSQL(String functionName, String message, String status,
-      String executed) {
+  public PostgresEmbeddedSqlTest(String functionName, String message, String status,
+                                 String executed) {
     this.functionName = functionName;
     this.message = message;
     this.status = status;
@@ -124,7 +125,7 @@ public class PostgresEmbeddedTestPureSQL {
   }
 
   @Test
-  public void test() throws IOException, SQLException {
+  public void test() {
     LOGGER.info(functionName + " " + message);
     Assert.assertEquals(functionName + " status", "t", this.status);
     Assert.assertEquals(functionName + " executed", "t", this.executed);
