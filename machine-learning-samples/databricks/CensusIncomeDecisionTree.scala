@@ -1,5 +1,8 @@
 // Databricks notebook source
-import org.apache.spark.sql.{DataFrame, functions}
+import org.apache.spark.ml.PipelineModel
+import org.apache.spark.ml.linalg.Vector
+import org.apache.spark.sql.types.StructType
+import org.apache.spark.sql.{DataFrame, Row, functions}
 
 def formatData(df: DataFrame, fields: Seq[String], continuousFieldIndexes: Seq[Int]): DataFrame = {
   var data = df
@@ -25,16 +28,63 @@ def formatData(df: DataFrame, fields: Seq[String], continuousFieldIndexes: Seq[I
   data
 }
 
-def showCategories(df: DataFrame, fields: Seq[String], categoricalFieldIndexes: Seq[Int]): Unit = {
+def removeFields(fields: Seq[String], categoricalFieldIndexes: Seq[Int], continuousFieldIndexes: Seq[Int], removeFields: String*):
+(Seq[String], Seq[Int], Seq[Int]) = {
+  var fieldsUpdated = fields
+  var categoricalFieldIndexesUpdated = categoricalFieldIndexes
+  var continuousFieldIndexesUpdated = continuousFieldIndexes
+
+  for (removeField <- removeFields) {
+    val removeIndex = fieldsUpdated.indexOf(removeField)
+    fieldsUpdated = fieldsUpdated.filter(x => !x.equals(removeField))
+    categoricalFieldIndexesUpdated = updateIndex(removeIndex, categoricalFieldIndexesUpdated)
+    continuousFieldIndexesUpdated = updateIndex(removeIndex, continuousFieldIndexesUpdated)
+  }
+
+  (fieldsUpdated, categoricalFieldIndexesUpdated, continuousFieldIndexesUpdated)
+}
+
+def updateIndex(removeIndex: Int, indexes: Seq[Int]): Seq[Int] = {
+  indexes
+    .filter(x => !x.equals(removeIndex))
+    .map(x =>
+      if (x > removeIndex) x - 1
+      else x
+    )
+}
+
+def showCategories(df: DataFrame, fields: Seq[String], categoricalFieldIndexes: Seq[Int], maxRows: Int): Unit = {
   for (i <- categoricalFieldIndexes) {
     val colName = fields(i)
-    df.select(colName + "Indexed", colName).distinct().sort(colName + "Indexed").show(100)
+    df.select(colName + "Indexed", colName).distinct().sort(colName + "Indexed").show(maxRows)
   }
+}
+
+def predictionsForPartialDependencePlot(schema: StructType, indexedData: DataFrame, testData: DataFrame, model: PipelineModel, fieldName: String): DataFrame = {
+  var predictions = spark.createDataFrame(spark.sparkContext.emptyRDD[Row], schema)
+
+  for (i <- indexedData.select(fieldName).distinct().orderBy(fieldName).collect()) {
+    val testDataIteration = testData.withColumn(fieldName, functions.lit(i.get(0)))
+    predictions = predictions.union(model.transform(testDataIteration))
+  }
+
+  predictions
+}
+
+def expandPredictions(predictions: DataFrame): DataFrame = {
+  val vectorElem = functions.udf((x: Vector, i: Integer) => x(i))
+
+  predictions
+    .where("indexedLabel = prediction")
+    .withColumn("rawPrediction0", vectorElem(predictions.col("rawPrediction"), functions.lit(0)))
+    .withColumn("rawPrediction1", vectorElem(predictions.col("rawPrediction"), functions.lit(1)))
+    .withColumn("score0", vectorElem(predictions.col("probability"), functions.lit(0)))
+    .withColumn("score1", vectorElem(predictions.col("probability"), functions.lit(1)))
 }
 
 // COMMAND ----------
 
-val fields = Seq(
+var fields = Seq(
   "age",
   "workclass",
   "fnlwgt",
@@ -50,15 +100,14 @@ val fields = Seq(
   "hours-per-week",
   "native-country"
 )
-
-val categoricalFieldIndexes = Seq(1, 3, 5, 6, 7, 8, 9, 13)
-val continuousFieldIndexes = Seq(0, 2, 4, 10, 11, 12)
+var categoricalFieldIndexes = Seq(1, 3, 5, 6, 7, 8, 9, 13)
+var continuousFieldIndexes = Seq(0, 2, 4, 10, 11, 12)
 
 // COMMAND ----------
 
 // Create dataframe to hold census income training data
 // Data retrieved from http://archive.ics.uci.edu/ml/datasets/Census+Income
-val trainingUrl = "https://raw.githubusercontent.com/aosama/MachineLearningSamples/master/src/main/resources/adult.data"
+val trainingUrl = "https://raw.githubusercontent.com/FINRAOS/CodeSamples/master/machine-learning-samples/src/main/resources/adult.data"
 val trainingContent = scala.io.Source.fromURL(trainingUrl).mkString
 
 val trainingList = trainingContent.split("\n").filter(_ != "")
@@ -70,7 +119,7 @@ var trainingData = spark.read.csv(trainingDs).cache
 
 // Create dataframe to hold census income test data
 // Data retrieved from http://archive.ics.uci.edu/ml/datasets/Census+Income
-val testUrl = "https://raw.githubusercontent.com/aosama/MachineLearningSamples/master/src/main/resources/adult.test"
+val testUrl = "https://raw.githubusercontent.com/FINRAOS/CodeSamples/master/machine-learning-samples/src/main/resources/adult.test"
 val testContent = scala.io.Source.fromURL(testUrl).mkString
 
 val testList = testContent.split("\n").filter(_ != "")
@@ -83,6 +132,15 @@ var testData = spark.read.csv(testDs).cache
 // Format the data
 trainingData = formatData(trainingData, fields, continuousFieldIndexes)
 testData = formatData(testData, fields, continuousFieldIndexes)
+
+// COMMAND ----------
+
+// Exclude redundant and weighted attributes from feature vector
+val (fieldsUpdated, categoricalFieldIndexesUpdated, continuousFieldIndexesUpdated) = removeFields(
+  fields, categoricalFieldIndexes, continuousFieldIndexes, "education-num", "relationship", "fnlwgt")
+fields = fieldsUpdated
+categoricalFieldIndexes = categoricalFieldIndexesUpdated
+continuousFieldIndexes = continuousFieldIndexesUpdated
 
 // COMMAND ----------
 
@@ -106,12 +164,6 @@ val vectorAssembler = new VectorAssembler()
   .setInputCols((categoricalFieldIndexes.map(i => fields(i) + "Indexed") ++ continuousFieldIndexes.map(i => fields(i))).toArray)
   .setOutputCol("features")
 
-// Create object to convert indexed labels back to actual labels for predictions
-val labelConverter = new IndexToString()
-  .setInputCol("prediction")
-  .setOutputCol("predictedLabel")
-  .setLabels(labelIndexer.labels)
-
 // COMMAND ----------
 
 import org.apache.spark.ml.Pipeline
@@ -121,8 +173,15 @@ import org.apache.spark.ml.classification.DecisionTreeClassifier
 val dt = new DecisionTreeClassifier()
   .setLabelCol("indexedLabel")
   .setFeaturesCol("features")
-  .setMaxBins(50) // Since feature "native-country" contains 42 distinct values, need to increase max bins.
-  .setMaxDepth(6)
+  .setMaxBins(42) // Since feature "native-country" contains 42 distinct values, need to increase max bins to at least 42.
+  .setMaxDepth(5)
+  .setImpurity("gini")
+
+// Create object to convert indexed labels back to actual labels for predictions
+val labelConverter = new IndexToString()
+  .setInputCol("prediction")
+  .setOutputCol("predictedLabel")
+  .setLabels(labelIndexer.labels)
 
 // Array of stages to run in pipeline
 val indexerArray = Array(labelIndexer) ++ categoricalIndexerArray
@@ -136,27 +195,6 @@ val model = pipeline.fit(trainingData)
 
 // Test the model
 val predictions = model.transform(testData)
-
-// COMMAND ----------
-
-display(predictions.select("label", Seq("predictedLabel" ,"indexedLabel", "prediction") ++ fields:_*))
-
-// COMMAND ----------
-
-val wrongPredictions = predictions
-  .select("label", Seq("predictedLabel" ,"indexedLabel", "prediction") ++ fields:_*)
-  .where("indexedLabel != prediction")
-display(wrongPredictions)
-
-// COMMAND ----------
-
-// Show the label and all the categorical features mapped to indexes
-val indexedData = new Pipeline()
-  .setStages(indexerArray)
-  .fit(trainingData)
-  .transform(trainingData)
-indexedData.select("indexedLabel", "label").distinct().sort("indexedLabel").show()
-showCategories(indexedData, fields, categoricalFieldIndexes)
 
 // COMMAND ----------
 
@@ -181,6 +219,11 @@ println(s"Confusion matrix:\n ${metrics.confusionMatrix}\n")
 
 val treeModel = model.stages(stageArray.length - 2).asInstanceOf[DecisionTreeClassificationModel]
 
+val featureImportances = treeModel.featureImportances.toArray.zipWithIndex.map(x => Tuple2(fields(x._2), x._1)).sortWith(_._2 > _._2)
+println("Feature importances sorted:")
+featureImportances.foreach(x => println(x._1 + ": " + x._2))
+println()
+
 // Print out the tree with actual column names for features
 var treeModelString = treeModel.toDebugString
 
@@ -202,54 +245,44 @@ display(treeModel)
 
 // COMMAND ----------
 
-display(testData.filter('age === 25))
+display(predictions.select("label", Seq("predictedLabel" ,"indexedLabel", "prediction") ++ fields:_*))
 
 // COMMAND ----------
 
-testData.printSchema
+val wrongPredictions = predictions
+  .select("label", Seq("predictedLabel" ,"indexedLabel", "prediction") ++ fields:_*)
+  .where("indexedLabel != prediction")
+display(wrongPredictions)
 
 // COMMAND ----------
 
-import org.apache.spark.ml.linalg.Vector
-val vectorElem = udf{ (x:Vector,i:Int) => x(i) }
-val predictionsExpanded = predictions.withColumn("rawPrediction0",vectorElem('rawPrediction,functions.lit(0)))
-   .withColumn("rawPrediction1",vectorElem('rawPrediction,functions.lit(1)))
-   .withColumn("score0",vectorElem('probability,functions.lit(0)))
-   .withColumn("score1",vectorElem('probability,functions.lit(1)))
+// Show the label and all the categorical features mapped to indexes
+val indexedData = new Pipeline()
+  .setStages(indexerArray)
+  .fit(trainingData)
+  .transform(trainingData)
+indexedData.select("indexedLabel", "label").distinct().sort("indexedLabel").show()
+showCategories(indexedData, fields, categoricalFieldIndexes, 100)
 
 // COMMAND ----------
 
-display(predictionsExpanded.orderBy($"age".asc))
+// Partial dependence plots
+val predictionsAge = predictionsForPartialDependencePlot(predictions.schema, indexedData, testData, model, "age")
+val predictionsEducation = predictionsForPartialDependencePlot(predictions.schema, indexedData, testData, model, "education")
+val predictionsMaritalStatus = predictionsForPartialDependencePlot(predictions.schema, indexedData, testData, model, "marital-status")
+
+val predictionsAgeExpanded = expandPredictions(predictionsAge)
+val predictionsEducationExpanded = expandPredictions(predictionsEducation)
+val predictionsMaritalStatusExpanded = expandPredictions(predictionsMaritalStatus)
 
 // COMMAND ----------
 
-val record = Seq((50,"Private",220931,"Bachelors",13,"Married-civ-spouse","Prof-specialty","Not-in-family","White","Male",10,0,43,"United-States")).toDF("age",
-  "workclass",
-  "fnlwgt",
-  "education",
-  "education-num",
-  "marital-status",
-  "occupation",
-  "relationship",
-  "race",
-  "sex",
-  "capital-gain",
-  "capital-loss",
-  "hours-per-week",
-  "native-country")
+display(predictionsAgeExpanded.orderBy($"age".asc))
 
 // COMMAND ----------
 
-val singlePrediction = model.transform(record)
-    .withColumn("rawPrediction0",vectorElem('rawPrediction,functions.lit(0)))
-   .withColumn("rawPrediction1",vectorElem('rawPrediction,functions.lit(1)))
-   .withColumn("score0",vectorElem('probability,functions.lit(0)))
-   .withColumn("score1",vectorElem('probability,functions.lit(1)))
+display(predictionsEducationExpanded.orderBy($"score1".asc))
 
 // COMMAND ----------
 
-display(singlePrediction)
-
-// COMMAND ----------
-
-display(trainingData.groupBy('age).count.orderBy('age.asc))
+display(predictionsMaritalStatusExpanded.orderBy($"score1".asc))

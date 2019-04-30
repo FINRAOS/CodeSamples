@@ -4,9 +4,9 @@ import org.apache.spark.ml.PipelineModel
 import org.apache.spark.ml.linalg.Vector
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{DataFrame, Row, functions}
-import org.finra.ezmachinelearning.DTCensusIncomeExample.spark
+import org.finra.ezmachinelearning.SharedSparkContext
 
-object CommonFunctions {
+object CommonFunctions extends SharedSparkContext {
   def formatData(df: DataFrame, fields: Seq[String], continuousFieldIndexes: Seq[Int]): DataFrame = {
     var data = df
 
