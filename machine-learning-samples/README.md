@@ -35,7 +35,7 @@ Uses the Census Income data set.
 
 ## Data Sets References
 
-#### [Census Income DataSet](http://archive.ics.uci.edu/ml/datasets/Census+Income)
+#### [Census Income DataSet](https://archive.ics.uci.edu/ml/datasets/Census+Income)
 First line from adult.test file removed for loading into Spark.
 
 Census Income data set citation:

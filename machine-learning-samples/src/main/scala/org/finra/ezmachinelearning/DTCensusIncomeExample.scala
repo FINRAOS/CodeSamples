@@ -33,7 +33,7 @@ object DTCensusIncomeExample extends SharedSparkContext {
     var continuousFieldIndexes = Seq(0, 2, 4, 10, 11, 12)
 
     // Create dataframes to hold census income data
-    // Data retrieved from http://archive.ics.uci.edu/ml/datasets/Census+Income
+    // Data retrieved from https://archive.ics.uci.edu/ml/datasets/Census+Income
     var trainingData = spark.read.format("csv").load("src/main/resources/adult.data")
     var testData = spark.read.format("csv").load("src/main/resources/adult.test")
 
