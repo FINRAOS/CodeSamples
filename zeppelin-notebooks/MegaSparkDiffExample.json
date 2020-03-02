@@ -1,0 +1,482 @@
+{
+  "paragraphs": [
+    {
+      "text": "%md\n\nSetup instructions for EMR execution.\n\n1) Follow the instructions at https://docs.aws.amazon.com/emr/latest/ManagementGuide/emr-web-interfaces.htm to connect to Zeppelin running on EMR\n2) Set up a connection to Zeppelin running on the EMR in the IntelliJ IDEA Big Data Tools plugin\n3) Build MegaSparkDiff JAR\n    Clone the MegaSparkDiff Github repo: https://github.com/FINRAOS/MegaSparkDiff\n    Switch to the develop branch\n    Run the command \"mvn package -DskipTests\" to build the JAR\n4) Add S3 connection to a bucket in IntelliJ IDEA Big Data Tools plugin and upload JAR file to the S3 bucket\n5) Mount the S3 bucket to the master node of the EMR cluster\n    Follow the \"Amazon Linux\" installation instructions at https://github.com/s3fs-fuse/s3fs-fuse/wiki/Installation-Notes\n    Mount the bucket using the instructions at https://github.com/s3fs-fuse/s3fs-fuse/wiki/Fuse-Over-Amazon\n    In order for Zeppelin to be able to access the mounted S3 bucket, the options \"allow_other\" and \"umask\u003d0022\" need to be added to the mount command\n6) Add the mounted JAR file to the spark interpreter (add property with name\u003d\"spark.jars\" and value of path with filename)\n\n\nInstructions on how to update JAR on EMR.\n\n1) Build new version of JAR file\n2) Upload new JAR file to the S3 bucket via IntelliJ IDEA Big Data Tools plugin\n3) Restart spark interpreter on Zeppelin (either through the Zeppelin UI or via a PUT call: http://hostname:port/api/interpreter/setting/restart/spark)",
+      "user": "anonymous",
+      "dateUpdated": "2020-03-02 01:37:26.148",
+      "config": {
+        "tableHide": false,
+        "editorSetting": {
+          "language": "markdown",
+          "editOnDblClick": true,
+          "completionKey": "TAB",
+          "completionSupport": false
+        },
+        "colWidth": 12.0,
+        "editorMode": "ace/mode/markdown",
+        "fontSize": 9.0,
+        "editorHide": false,
+        "results": {},
+        "enabled": true
+      },
+      "settings": {
+        "params": {},
+        "forms": {}
+      },
+      "apps": [],
+      "jobName": "paragraph_1583111471396_2047761481",
+      "id": "20200227-034453_1754406058",
+      "dateCreated": "2020-03-02 01:11:11.396",
+      "dateStarted": "2020-03-02 01:37:02.227",
+      "dateFinished": "2020-03-02 01:37:02.431",
+      "status": "FINISHED",
+      "errorMessage": "",
+      "progressUpdateIntervalMs": 500
+    },
+    {
+      "text": "import org.finra.msd.sparkfactory.SparkFactory\n\nSparkFactory.initializeSparkContext()",
+      "user": "anonymous",
+      "dateUpdated": "2020-03-02 01:20:52.725",
+      "config": {
+        "editorSetting": {
+          "language": "scala",
+          "editOnDblClick": false,
+          "completionKey": "TAB",
+          "completionSupport": true
+        },
+        "colWidth": 12.0,
+        "editorMode": "ace/mode/scala",
+        "fontSize": 9.0,
+        "results": {},
+        "enabled": true
+      },
+      "settings": {
+        "params": {},
+        "forms": {}
+      },
+      "apps": [],
+      "jobName": "paragraph_1583111471402_-1273827127",
+      "id": "20200227-014332_1659919373",
+      "dateCreated": "2020-03-02 01:11:11.403",
+      "dateStarted": "2020-03-02 01:20:52.796",
+      "dateFinished": "2020-03-02 01:21:21.094",
+      "status": "FINISHED",
+      "errorMessage": "",
+      "progressUpdateIntervalMs": 500
+    },
+    {
+      "text": "// Place the two following files in S3:\n// https://raw.githubusercontent.com/FINRAOS/MegaSparkDiff/master/src/test/resources/Test1.txt\n// https://raw.githubusercontent.com/FINRAOS/MegaSparkDiff/master/src/test/resources/Test3.txt\n\n// Replace http file names below with s3 file links\nval leftAppleTable \u003d SparkFactory.parallelizeTextSource(\"Test1.txt\", \"table1\")\nval rightAppleTable \u003d SparkFactory.parallelizeTextSource(\"Test3.txt\", \"table2\")",
+      "user": "anonymous",
+      "dateUpdated": "2020-03-02 01:30:13.380",
+      "config": {
+        "editorSetting": {
+          "language": "scala",
+          "editOnDblClick": false,
+          "completionKey": "TAB",
+          "completionSupport": true
+        },
+        "colWidth": 12.0,
+        "editorMode": "ace/mode/scala",
+        "fontSize": 9.0,
+        "results": {},
+        "enabled": true
+      },
+      "settings": {
+        "params": {},
+        "forms": {}
+      },
+      "apps": [],
+      "jobName": "paragraph_1583111471403_-1775548665",
+      "id": "20200227-014516_1519967710",
+      "dateCreated": "2020-03-02 01:11:11.403",
+      "dateStarted": "2020-03-02 01:27:44.969",
+      "dateFinished": "2020-03-02 01:27:45.778",
+      "status": "FINISHED",
+      "errorMessage": "",
+      "progressUpdateIntervalMs": 500
+    },
+    {
+      "text": "sqlContext.dropTempTable(\"leftTable\")\nsqlContext.dropTempTable(\"rightTable\")\nleftAppleTable.dataFrame.createTempView(\"leftTable\")\nrightAppleTable.dataFrame.createTempView(\"rightTable\")",
+      "user": "anonymous",
+      "dateUpdated": "2020-03-02 01:27:49.209",
+      "config": {
+        "colWidth": 12.0,
+        "fontSize": 9.0,
+        "results": {},
+        "enabled": true,
+        "editorSetting": {
+          "language": "scala",
+          "editOnDblClick": false,
+          "completionKey": "TAB",
+          "completionSupport": true
+        },
+        "editorMode": "ace/mode/scala"
+      },
+      "settings": {
+        "params": {},
+        "forms": {}
+      },
+      "apps": [],
+      "jobName": "paragraph_1583111471403_1394098196",
+      "id": "20200227-134545_664501632",
+      "dateCreated": "2020-03-02 01:11:11.404",
+      "dateStarted": "2020-03-02 01:27:49.290",
+      "dateFinished": "2020-03-02 01:27:49.856",
+      "status": "FINISHED",
+      "errorMessage": "",
+      "progressUpdateIntervalMs": 500
+    },
+    {
+      "text": "%sql\nSELECT * FROM leftTable",
+      "user": "anonymous",
+      "dateUpdated": "2020-03-02 01:56:53.740",
+      "config": {
+        "editorSetting": {
+          "language": "sql",
+          "editOnDblClick": false,
+          "completionKey": "TAB",
+          "completionSupport": true
+        },
+        "colWidth": 4.0,
+        "editorMode": "ace/mode/sql",
+        "fontSize": 9.0,
+        "results": {
+          "0": {
+            "graph": {
+              "mode": "table",
+              "height": 300.0,
+              "optionOpen": false,
+              "setting": {
+                "table": {
+                  "tableGridState": {},
+                  "tableColumnTypeState": {
+                    "names": {
+                      "values": "string"
+                    },
+                    "updated": false
+                  },
+                  "tableOptionSpecHash": "[{\"name\":\"useFilter\",\"valueType\":\"boolean\",\"defaultValue\":false,\"widget\":\"checkbox\",\"description\":\"Enable filter for columns\"},{\"name\":\"showPagination\",\"valueType\":\"boolean\",\"defaultValue\":false,\"widget\":\"checkbox\",\"description\":\"Enable pagination for better navigation\"},{\"name\":\"showAggregationFooter\",\"valueType\":\"boolean\",\"defaultValue\":false,\"widget\":\"checkbox\",\"description\":\"Enable a footer for displaying aggregated values\"}]",
+                  "tableOptionValue": {
+                    "useFilter": false,
+                    "showPagination": false,
+                    "showAggregationFooter": false
+                  },
+                  "updated": false,
+                  "initialized": false
+                }
+              },
+              "commonSetting": {}
+            }
+          }
+        },
+        "enabled": true
+      },
+      "settings": {
+        "params": {
+          "bdtMeta": {
+            "inlay": {
+              "state": {
+                "currentPage": "Table"
+              }
+            }
+          }
+        },
+        "forms": {}
+      },
+      "apps": [],
+      "jobName": "paragraph_1583111471404_-1487559414",
+      "id": "20200227-020041_1974286418",
+      "dateCreated": "2020-03-02 01:11:11.404",
+      "dateStarted": "2020-03-02 01:27:52.507",
+      "dateFinished": "2020-03-02 01:27:54.149",
+      "status": "FINISHED",
+      "errorMessage": "",
+      "progressUpdateIntervalMs": 500
+    },
+    {
+      "text": "%sql\nSELECT * FROM rightTable",
+      "user": "anonymous",
+      "dateUpdated": "2020-03-02 01:27:54.373",
+      "config": {
+        "editorSetting": {
+          "language": "sql",
+          "editOnDblClick": false,
+          "completionKey": "TAB",
+          "completionSupport": true
+        },
+        "colWidth": 4.0,
+        "editorMode": "ace/mode/sql",
+        "fontSize": 9.0,
+        "results": {
+          "0": {
+            "graph": {
+              "mode": "table",
+              "height": 300.0,
+              "optionOpen": false,
+              "setting": {
+                "table": {
+                  "tableGridState": {},
+                  "tableColumnTypeState": {
+                    "names": {
+                      "values": "string"
+                    },
+                    "updated": false
+                  },
+                  "tableOptionSpecHash": "[{\"name\":\"useFilter\",\"valueType\":\"boolean\",\"defaultValue\":false,\"widget\":\"checkbox\",\"description\":\"Enable filter for columns\"},{\"name\":\"showPagination\",\"valueType\":\"boolean\",\"defaultValue\":false,\"widget\":\"checkbox\",\"description\":\"Enable pagination for better navigation\"},{\"name\":\"showAggregationFooter\",\"valueType\":\"boolean\",\"defaultValue\":false,\"widget\":\"checkbox\",\"description\":\"Enable a footer for displaying aggregated values\"}]",
+                  "tableOptionValue": {
+                    "useFilter": false,
+                    "showPagination": false,
+                    "showAggregationFooter": false
+                  },
+                  "updated": false,
+                  "initialized": false
+                }
+              },
+              "commonSetting": {}
+            }
+          }
+        },
+        "enabled": true
+      },
+      "settings": {
+        "params": {},
+        "forms": {}
+      },
+      "apps": [],
+      "jobName": "paragraph_1583111471404_35668043",
+      "id": "20200227-134158_1066244626",
+      "dateCreated": "2020-03-02 01:11:11.404",
+      "dateStarted": "2020-03-02 01:27:54.493",
+      "dateFinished": "2020-03-02 01:27:54.872",
+      "status": "FINISHED",
+      "errorMessage": "",
+      "progressUpdateIntervalMs": 500
+    },
+    {
+      "text": "import org.finra.msd.sparkcompare.SparkCompare\n\nval diffResult \u003d SparkCompare.compareAppleTables(leftAppleTable, rightAppleTable)",
+      "user": "anonymous",
+      "dateUpdated": "2020-03-02 01:56:55.320",
+      "config": {
+        "editorSetting": {
+          "language": "scala",
+          "editOnDblClick": false,
+          "completionKey": "TAB",
+          "completionSupport": true
+        },
+        "colWidth": 12.0,
+        "editorMode": "ace/mode/scala",
+        "fontSize": 9.0,
+        "results": {},
+        "enabled": true
+      },
+      "settings": {
+        "params": {},
+        "forms": {}
+      },
+      "apps": [],
+      "jobName": "paragraph_1583111471404_1461050463",
+      "id": "20200227-023244_435511932",
+      "dateCreated": "2020-03-02 01:11:11.404",
+      "dateStarted": "2020-03-02 01:27:57.550",
+      "dateFinished": "2020-03-02 01:27:58.590",
+      "status": "FINISHED",
+      "errorMessage": "",
+      "progressUpdateIntervalMs": 500
+    },
+    {
+      "text": "sqlContext.dropTempTable(\"leftNotInRight\")\nsqlContext.dropTempTable(\"rightNotInLeft\")\ndiffResult.inLeftNotInRight.createTempView(\"leftNotInRight\")\ndiffResult.inRightNotInLeft.createTempView(\"rightNotInLeft\")",
+      "user": "anonymous",
+      "dateUpdated": "2020-03-02 01:56:58.443",
+      "config": {
+        "editorSetting": {
+          "language": "scala",
+          "editOnDblClick": false,
+          "completionKey": "TAB",
+          "completionSupport": true
+        },
+        "colWidth": 12.0,
+        "editorMode": "ace/mode/scala",
+        "fontSize": 9.0,
+        "results": {},
+        "enabled": true
+      },
+      "settings": {
+        "params": {},
+        "forms": {}
+      },
+      "apps": [],
+      "jobName": "paragraph_1583111471405_1101796623",
+      "id": "20200227-023308_1764879174",
+      "dateCreated": "2020-03-02 01:11:11.405",
+      "dateStarted": "2020-03-02 01:28:00.707",
+      "dateFinished": "2020-03-02 01:28:01.320",
+      "status": "FINISHED",
+      "errorMessage": "",
+      "progressUpdateIntervalMs": 500
+    },
+    {
+      "text": "%sql\nSELECT * FROM leftNotInRight",
+      "user": "anonymous",
+      "dateUpdated": "2020-03-02 01:28:03.023",
+      "config": {
+        "colWidth": 4.0,
+        "fontSize": 9.0,
+        "results": {
+          "0": {
+            "graph": {
+              "mode": "table",
+              "height": 300.0,
+              "optionOpen": false,
+              "setting": {
+                "table": {
+                  "tableGridState": {},
+                  "tableColumnTypeState": {
+                    "names": {
+                      "values": "string",
+                      "count": "string"
+                    },
+                    "updated": false
+                  },
+                  "tableOptionSpecHash": "[{\"name\":\"useFilter\",\"valueType\":\"boolean\",\"defaultValue\":false,\"widget\":\"checkbox\",\"description\":\"Enable filter for columns\"},{\"name\":\"showPagination\",\"valueType\":\"boolean\",\"defaultValue\":false,\"widget\":\"checkbox\",\"description\":\"Enable pagination for better navigation\"},{\"name\":\"showAggregationFooter\",\"valueType\":\"boolean\",\"defaultValue\":false,\"widget\":\"checkbox\",\"description\":\"Enable a footer for displaying aggregated values\"}]",
+                  "tableOptionValue": {
+                    "useFilter": false,
+                    "showPagination": false,
+                    "showAggregationFooter": false
+                  },
+                  "updated": false,
+                  "initialized": false
+                }
+              },
+              "commonSetting": {}
+            }
+          }
+        },
+        "enabled": true,
+        "editorSetting": {
+          "language": "sql",
+          "editOnDblClick": false,
+          "completionKey": "TAB",
+          "completionSupport": true
+        },
+        "editorMode": "ace/mode/sql"
+      },
+      "settings": {
+        "params": {},
+        "forms": {}
+      },
+      "apps": [],
+      "jobName": "paragraph_1583111471405_1846204349",
+      "id": "20200227-134821_1834193579",
+      "dateCreated": "2020-03-02 01:11:11.405",
+      "dateStarted": "2020-03-02 01:28:03.079",
+      "dateFinished": "2020-03-02 01:28:25.192",
+      "status": "FINISHED",
+      "errorMessage": "",
+      "progressUpdateIntervalMs": 500
+    },
+    {
+      "text": "%sql\nSELECT * FROM rightNotInLeft",
+      "user": "anonymous",
+      "dateUpdated": "2020-03-02 01:28:04.866",
+      "config": {
+        "colWidth": 4.0,
+        "fontSize": 9.0,
+        "results": {
+          "0": {
+            "graph": {
+              "mode": "table",
+              "height": 300.0,
+              "optionOpen": false,
+              "setting": {
+                "table": {
+                  "tableGridState": {},
+                  "tableColumnTypeState": {
+                    "names": {
+                      "values": "string",
+                      "count": "string"
+                    },
+                    "updated": false
+                  },
+                  "tableOptionSpecHash": "[{\"name\":\"useFilter\",\"valueType\":\"boolean\",\"defaultValue\":false,\"widget\":\"checkbox\",\"description\":\"Enable filter for columns\"},{\"name\":\"showPagination\",\"valueType\":\"boolean\",\"defaultValue\":false,\"widget\":\"checkbox\",\"description\":\"Enable pagination for better navigation\"},{\"name\":\"showAggregationFooter\",\"valueType\":\"boolean\",\"defaultValue\":false,\"widget\":\"checkbox\",\"description\":\"Enable a footer for displaying aggregated values\"}]",
+                  "tableOptionValue": {
+                    "useFilter": false,
+                    "showPagination": false,
+                    "showAggregationFooter": false
+                  },
+                  "updated": false,
+                  "initialized": false
+                }
+              },
+              "commonSetting": {}
+            }
+          }
+        },
+        "enabled": true,
+        "editorSetting": {
+          "language": "sql",
+          "editOnDblClick": false,
+          "completionKey": "TAB",
+          "completionSupport": true
+        },
+        "editorMode": "ace/mode/sql"
+      },
+      "settings": {
+        "params": {},
+        "forms": {}
+      },
+      "apps": [],
+      "jobName": "paragraph_1583111471405_1228098255",
+      "id": "20200227-134840_790732507",
+      "dateCreated": "2020-03-02 01:11:11.406",
+      "dateStarted": "2020-03-02 01:28:05.010",
+      "dateFinished": "2020-03-02 01:28:35.798",
+      "status": "FINISHED",
+      "errorMessage": "",
+      "progressUpdateIntervalMs": 500
+    },
+    {
+      "text": "import org.finra.msd.visualization.Visualizer\n\nval primaryKeySeq \u003d Seq(\"values\")\nval html \u003d Visualizer.generateVisualizerTemplate(diffResult.inLeftNotInRight, diffResult.inRightNotInLeft, primaryKeySeq, 10)\nprint(\"%html \" + html)",
+      "user": "anonymous",
+      "dateUpdated": "2020-03-02 01:57:00.657",
+      "config": {
+        "editorSetting": {
+          "language": "scala",
+          "editOnDblClick": false,
+          "completionKey": "TAB",
+          "completionSupport": true
+        },
+        "colWidth": 12.0,
+        "editorMode": "ace/mode/scala",
+        "fontSize": 9.0,
+        "results": {},
+        "enabled": true
+      },
+      "settings": {
+        "params": {},
+        "forms": {}
+      },
+      "apps": [],
+      "jobName": "paragraph_1583111471406_-1758092771",
+      "id": "20200227-023320_1067371211",
+      "dateCreated": "2020-03-02 01:11:11.406",
+      "dateStarted": "2020-03-02 01:28:25.839",
+      "dateFinished": "2020-03-02 01:29:27.443",
+      "status": "FINISHED",
+      "errorMessage": "",
+      "progressUpdateIntervalMs": 500
+    }
+  ],
+  "name": "MegaSparkDiffExample",
+  "id": "2F338RGVN",
+  "noteParams": {},
+  "noteForms": {},
+  "angularObjects": {
+    "md:shared_process": [],
+    "sh:shared_process": [],
+    "spark:shared_process": []
+  },
+  "config": {
+    "isZeppelinNotebookCronEnable": false
+  },
+  "info": {}
+}
