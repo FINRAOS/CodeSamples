@@ -78,7 +78,7 @@ object CommonFunctions extends SharedSparkContext {
     val vectorElem = functions.udf((x: Vector, i: Integer) => x(i))
 
     predictions
-      .where("indexedLabel = prediction")
+//      .where("indexedLabel = prediction")
       .withColumn("rawPrediction0", vectorElem(predictions.col("rawPrediction"), functions.lit(0)))
       .withColumn("rawPrediction1", vectorElem(predictions.col("rawPrediction"), functions.lit(1)))
       .withColumn("score0", vectorElem(predictions.col("probability"), functions.lit(0)))

@@ -1,0 +1,1054 @@
+{
+  "paragraphs": [
+    {
+      "text": "import org.apache.spark.ml.PipelineModel\nimport org.apache.spark.ml.linalg.Vector\nimport org.apache.spark.sql.types.StructType\nimport org.apache.spark.sql.{DataFrame, Row, functions}\n\ndef formatData(df: DataFrame, fields: Seq[String], continuousFieldIndexes: Seq[Int]): DataFrame \u003d {\n  var data \u003d df\n\n  // Trim leading spaces from data\n  for (colName \u003c- data.columns)\n    data \u003d data.withColumn(colName, functions.ltrim(functions.col(colName)))\n\n  // Assign column names\n  for (i \u003c- fields.indices)\n    data \u003d data.withColumnRenamed(\"_c\" + i, fields(i))\n\n  data \u003d data.withColumnRenamed(\"_c14\", \"label\")\n\n  // Convert continuous values from string to double\n  for (i \u003c- continuousFieldIndexes) {\n    data \u003d data.withColumn(fields(i), functions.col(fields(i)).cast(\"double\"))\n  }\n\n  // Remove \u0027.\u0027 character from label\n  data \u003d data.withColumn(\"label\", functions.regexp_replace(functions.col(\"label\"), \"\\\\.\", \"\"))\n\n  data\n}\n\ndef removeFields(fields: Seq[String], categoricalFieldIndexes: Seq[Int], continuousFieldIndexes: Seq[Int], removeFields: String*):\n(Seq[String], Seq[Int], Seq[Int]) \u003d {\n  var fieldsUpdated \u003d fields\n  var categoricalFieldIndexesUpdated \u003d categoricalFieldIndexes\n  var continuousFieldIndexesUpdated \u003d continuousFieldIndexes\n\n  for (removeField \u003c- removeFields) {\n    val removeIndex \u003d fieldsUpdated.indexOf(removeField)\n    fieldsUpdated \u003d fieldsUpdated.filter(x \u003d\u003e !x.equals(removeField))\n    categoricalFieldIndexesUpdated \u003d updateIndex(removeIndex, categoricalFieldIndexesUpdated)\n    continuousFieldIndexesUpdated \u003d updateIndex(removeIndex, continuousFieldIndexesUpdated)\n  }\n\n  (fieldsUpdated, categoricalFieldIndexesUpdated, continuousFieldIndexesUpdated)\n}\n\ndef updateIndex(removeIndex: Int, indexes: Seq[Int]): Seq[Int] \u003d {\n  indexes\n    .filter(x \u003d\u003e !x.equals(removeIndex))\n    .map(x \u003d\u003e\n      if (x \u003e removeIndex) x - 1\n      else x\n    )\n}\n\ndef showCategories(df: DataFrame, fields: Seq[String], categoricalFieldIndexes: Seq[Int], maxRows: Int): Unit \u003d {\n  for (i \u003c- categoricalFieldIndexes) {\n    val colName \u003d fields(i)\n    df.select(colName + \"Indexed\", colName).distinct().sort(colName + \"Indexed\").show(maxRows)\n  }\n}\n\ndef predictionsForPartialDependencePlot(schema: StructType, indexedData: DataFrame, testData: DataFrame, model: PipelineModel, fieldName: String): DataFrame \u003d {\n  var predictions \u003d spark.createDataFrame(spark.sparkContext.emptyRDD[Row], schema)\n\n  for (i \u003c- indexedData.select(fieldName).distinct().orderBy(fieldName).collect()) {\n    val testDataIteration \u003d testData.withColumn(fieldName, functions.lit(i.get(0)))\n    predictions \u003d predictions.union(model.transform(testDataIteration))\n  }\n\n  predictions\n}\n\ndef expandPredictions(predictions: DataFrame): DataFrame \u003d {\n  val vectorElem \u003d functions.udf((x: Vector, i: Integer) \u003d\u003e x(i))\n\n  predictions\n//    .where(\"indexedLabel \u003d prediction\")\n    .withColumn(\"rawPrediction0\", vectorElem(predictions.col(\"rawPrediction\"), functions.lit(0)))\n    .withColumn(\"rawPrediction1\", vectorElem(predictions.col(\"rawPrediction\"), functions.lit(1)))\n    .withColumn(\"score0\", vectorElem(predictions.col(\"probability\"), functions.lit(0)))\n    .withColumn(\"score1\", vectorElem(predictions.col(\"probability\"), functions.lit(1)))\n}",
+      "user": "anonymous",
+      "dateUpdated": "2020-03-02 01:56:08.346",
+      "config": {
+        "editorSetting": {
+          "language": "scala",
+          "editOnDblClick": false,
+          "completionKey": "TAB",
+          "completionSupport": true
+        },
+        "colWidth": 12.0,
+        "editorMode": "ace/mode/scala",
+        "fontSize": 9.0,
+        "results": {},
+        "enabled": true
+      },
+      "settings": {
+        "params": {},
+        "forms": {}
+      },
+      "apps": [],
+      "jobName": "paragraph_1583111463055_-1152468060",
+      "id": "20200226-192532_1638450467",
+      "dateCreated": "2020-03-02 01:11:03.055",
+      "dateStarted": "2020-03-02 01:46:15.452",
+      "dateFinished": "2020-03-02 01:47:00.928",
+      "status": "FINISHED",
+      "errorMessage": "",
+      "progressUpdateIntervalMs": 500
+    },
+    {
+      "text": "var fields \u003d Seq(\n  \"age\",\n  \"workclass\",\n  \"fnlwgt\",\n  \"education\",\n  \"educationNum\",\n  \"maritalStatus\",\n  \"occupation\",\n  \"relationship\",\n  \"race\",\n  \"sex\",\n  \"capitalGain\",\n  \"capitalLoss\",\n  \"hoursPerWeek\",\n  \"nativeCountry\"\n)\nvar categoricalFieldIndexes \u003d Seq(1, 3, 5, 6, 7, 8, 9, 13)\nvar continuousFieldIndexes \u003d Seq(0, 2, 4, 10, 11, 12)",
+      "user": "anonymous",
+      "dateUpdated": "2020-03-02 01:55:58.315",
+      "config": {
+        "editorSetting": {
+          "language": "scala",
+          "editOnDblClick": false,
+          "completionKey": "TAB",
+          "completionSupport": true
+        },
+        "colWidth": 12.0,
+        "editorMode": "ace/mode/scala",
+        "fontSize": 9.0,
+        "results": {},
+        "enabled": true
+      },
+      "settings": {
+        "params": {},
+        "forms": {}
+      },
+      "apps": [],
+      "jobName": "paragraph_1583111463060_-999625385",
+      "id": "20200226-192747_1872811220",
+      "dateCreated": "2020-03-02 01:11:03.060",
+      "dateStarted": "2020-03-02 01:47:01.382",
+      "dateFinished": "2020-03-02 01:47:02.746",
+      "status": "FINISHED",
+      "errorMessage": "",
+      "progressUpdateIntervalMs": 500
+    },
+    {
+      "text": "// Create dataframe to hold census income training data\n// Data retrieved from https://archive.ics.uci.edu/ml/datasets/Census+Income\nval trainingUrl \u003d \"https://raw.githubusercontent.com/FINRAOS/CodeSamples/master/machine-learning-samples/src/main/resources/adult.data\"\nval trainingContent \u003d scala.io.Source.fromURL(trainingUrl).mkString\n\nval trainingList \u003d trainingContent.split(\"\\n\").filter(_ !\u003d \"\")\n\nval trainingDs \u003d sc.parallelize(trainingList).toDS()\nvar trainingData \u003d spark.read.csv(trainingDs).cache",
+      "user": "anonymous",
+      "dateUpdated": "2020-03-02 01:55:55.565",
+      "config": {
+        "editorSetting": {
+          "language": "scala",
+          "editOnDblClick": false,
+          "completionKey": "TAB",
+          "completionSupport": true
+        },
+        "colWidth": 12.0,
+        "editorMode": "ace/mode/scala",
+        "fontSize": 9.0,
+        "results": {},
+        "enabled": true
+      },
+      "settings": {
+        "params": {},
+        "forms": {}
+      },
+      "apps": [],
+      "jobName": "paragraph_1583111463060_-532570922",
+      "id": "20200226-192803_1837769438",
+      "dateCreated": "2020-03-02 01:11:03.060",
+      "dateStarted": "2020-03-02 01:47:03.244",
+      "dateFinished": "2020-03-02 01:47:22.663",
+      "status": "FINISHED",
+      "errorMessage": "",
+      "progressUpdateIntervalMs": 500
+    },
+    {
+      "text": "// Create dataframe to hold census income test data\n// Data retrieved from https://archive.ics.uci.edu/ml/datasets/Census+Income\nval testUrl \u003d \"https://raw.githubusercontent.com/FINRAOS/CodeSamples/master/machine-learning-samples/src/main/resources/adult.test\"\nval testContent \u003d scala.io.Source.fromURL(testUrl).mkString\n\nval testList \u003d testContent.split(\"\\n\").filter(_ !\u003d \"\")\n\nval testDs \u003d sc.parallelize(testList).toDS()\nvar testData \u003d spark.read.csv(testDs).cache",
+      "user": "anonymous",
+      "dateUpdated": "2020-03-02 01:55:52.867",
+      "config": {
+        "editorSetting": {
+          "language": "scala",
+          "editOnDblClick": false,
+          "completionKey": "TAB",
+          "completionSupport": true
+        },
+        "colWidth": 12.0,
+        "editorMode": "ace/mode/scala",
+        "fontSize": 9.0,
+        "results": {},
+        "enabled": true
+      },
+      "settings": {
+        "params": {},
+        "forms": {}
+      },
+      "apps": [],
+      "jobName": "paragraph_1583111463061_149235792",
+      "id": "20200226-192823_204184718",
+      "dateCreated": "2020-03-02 01:11:03.061",
+      "dateStarted": "2020-03-02 01:47:23.233",
+      "dateFinished": "2020-03-02 01:47:34.772",
+      "status": "FINISHED",
+      "errorMessage": "",
+      "progressUpdateIntervalMs": 500
+    },
+    {
+      "text": "// Format the data\ntrainingData \u003d formatData(trainingData, fields, continuousFieldIndexes)\ntestData \u003d formatData(testData, fields, continuousFieldIndexes)",
+      "user": "anonymous",
+      "dateUpdated": "2020-03-02 01:55:50.474",
+      "config": {
+        "editorSetting": {
+          "language": "scala",
+          "editOnDblClick": false,
+          "completionKey": "TAB",
+          "completionSupport": true
+        },
+        "colWidth": 12.0,
+        "editorMode": "ace/mode/scala",
+        "fontSize": 9.0,
+        "results": {},
+        "enabled": true
+      },
+      "settings": {
+        "params": {},
+        "forms": {}
+      },
+      "apps": [],
+      "jobName": "paragraph_1583111463061_-1028570630",
+      "id": "20200226-192837_1541685668",
+      "dateCreated": "2020-03-02 01:11:03.061",
+      "dateStarted": "2020-03-02 01:47:35.137",
+      "dateFinished": "2020-03-02 01:47:49.976",
+      "status": "FINISHED",
+      "errorMessage": "",
+      "progressUpdateIntervalMs": 500
+    },
+    {
+      "text": "// Exclude redundant and weighted attributes from feature vector\nval (fieldsUpdated, categoricalFieldIndexesUpdated, continuousFieldIndexesUpdated) \u003d removeFields(\n  fields, categoricalFieldIndexes, continuousFieldIndexes, \"educationNum\", \"relationship\", \"fnlwgt\")\nfields \u003d fieldsUpdated\ncategoricalFieldIndexes \u003d categoricalFieldIndexesUpdated\ncontinuousFieldIndexes \u003d continuousFieldIndexesUpdated",
+      "user": "anonymous",
+      "dateUpdated": "2020-03-02 01:55:47.323",
+      "config": {
+        "editorSetting": {
+          "language": "scala",
+          "editOnDblClick": false,
+          "completionKey": "TAB",
+          "completionSupport": true
+        },
+        "colWidth": 12.0,
+        "editorMode": "ace/mode/scala",
+        "fontSize": 9.0,
+        "results": {},
+        "enabled": true
+      },
+      "settings": {
+        "params": {},
+        "forms": {}
+      },
+      "apps": [],
+      "jobName": "paragraph_1583111463061_1959693872",
+      "id": "20200226-192849_631070283",
+      "dateCreated": "2020-03-02 01:11:03.061",
+      "dateStarted": "2020-03-02 01:47:50.756",
+      "dateFinished": "2020-03-02 01:47:58.116",
+      "status": "FINISHED",
+      "errorMessage": "",
+      "progressUpdateIntervalMs": 500
+    },
+    {
+      "text": "import org.apache.spark.ml.feature.{IndexToString, StringIndexer, VectorAssembler}\n\n// Create object to convert categorical values to index values\nval categoricalIndexerArray \u003d\n  for (i \u003c- categoricalFieldIndexes)\n    yield new StringIndexer()\n      .setInputCol(fields(i))\n      .setOutputCol(fields(i) + \"Indexed\")\n\n// Create object to index label values\nval labelIndexer \u003d new StringIndexer()\n  .setInputCol(\"label\")\n  .setOutputCol(\"indexedLabel\")\n  .fit(trainingData)\n\n// Create object to generate feature vector from categorical and continuous values\nval vectorAssembler \u003d new VectorAssembler()\n  .setInputCols((categoricalFieldIndexes.map(i \u003d\u003e fields(i) + \"Indexed\") ++ continuousFieldIndexes.map(i \u003d\u003e fields(i))).toArray)\n  .setOutputCol(\"features\")",
+      "user": "anonymous",
+      "dateUpdated": "2020-03-02 01:55:45.260",
+      "config": {
+        "editorSetting": {
+          "language": "scala",
+          "editOnDblClick": false,
+          "completionKey": "TAB",
+          "completionSupport": true
+        },
+        "colWidth": 12.0,
+        "editorMode": "ace/mode/scala",
+        "fontSize": 9.0,
+        "results": {},
+        "enabled": true
+      },
+      "settings": {
+        "params": {},
+        "forms": {}
+      },
+      "apps": [],
+      "jobName": "paragraph_1583111463062_-323100232",
+      "id": "20200226-192901_1700481306",
+      "dateCreated": "2020-03-02 01:11:03.062",
+      "dateStarted": "2020-03-02 01:47:58.782",
+      "dateFinished": "2020-03-02 01:48:22.979",
+      "status": "FINISHED",
+      "errorMessage": "",
+      "progressUpdateIntervalMs": 500
+    },
+    {
+      "text": "trainingData.show()",
+      "user": "anonymous",
+      "dateUpdated": "2020-03-02 01:48:23.085",
+      "config": {
+        "editorSetting": {
+          "language": "scala",
+          "editOnDblClick": false,
+          "completionKey": "TAB",
+          "completionSupport": true
+        },
+        "colWidth": 12.0,
+        "editorMode": "ace/mode/scala",
+        "fontSize": 9.0,
+        "results": {},
+        "enabled": true
+      },
+      "settings": {
+        "params": {},
+        "forms": {}
+      },
+      "apps": [],
+      "jobName": "paragraph_1583111463062_-2030333266",
+      "id": "20200226-195623_940559449",
+      "dateCreated": "2020-03-02 01:11:03.062",
+      "dateStarted": "2020-03-02 01:48:23.430",
+      "dateFinished": "2020-03-02 01:48:25.099",
+      "status": "FINISHED",
+      "errorMessage": "",
+      "progressUpdateIntervalMs": 500
+    },
+    {
+      "text": "import org.apache.spark.ml.Pipeline\nimport org.apache.spark.ml.classification.DecisionTreeClassifier\n\n// Create decision tree\nval dt \u003d new DecisionTreeClassifier()\n  .setLabelCol(\"indexedLabel\")\n  .setFeaturesCol(\"features\")\n  .setMaxBins(42) // Since feature \"nativeCountry\" contains 42 distinct values, need to increase max bins to at least 42.\n  .setMaxDepth(5)\n  .setImpurity(\"gini\")\n\n// Create object to convert indexed labels back to actual labels for predictions\nval labelConverter \u003d new IndexToString()\n  .setInputCol(\"prediction\")\n  .setOutputCol(\"predictedLabel\")\n  .setLabels(labelIndexer.labels)\n\n// Array of stages to run in pipeline\nval indexerArray \u003d Array(labelIndexer) ++ categoricalIndexerArray\nval stageArray \u003d indexerArray ++ Array(vectorAssembler, dt, labelConverter)\n\nval pipeline \u003d new Pipeline()\n  .setStages(stageArray)\n\n// Train the model\nval model \u003d pipeline.fit(trainingData)\n\n// Test the model\nval predictions \u003d model.transform(testData)",
+      "user": "anonymous",
+      "dateUpdated": "2020-03-02 01:55:38.436",
+      "config": {
+        "editorSetting": {
+          "language": "scala",
+          "editOnDblClick": false,
+          "completionKey": "TAB",
+          "completionSupport": true
+        },
+        "colWidth": 12.0,
+        "editorMode": "ace/mode/scala",
+        "fontSize": 9.0,
+        "results": {},
+        "enabled": true
+      },
+      "settings": {
+        "params": {},
+        "forms": {}
+      },
+      "apps": [],
+      "jobName": "paragraph_1583111463063_-542580421",
+      "id": "20200226-192907_1437544615",
+      "dateCreated": "2020-03-02 01:11:03.063",
+      "dateStarted": "2020-03-02 01:48:25.414",
+      "dateFinished": "2020-03-02 01:48:50.765",
+      "status": "FINISHED",
+      "errorMessage": "",
+      "progressUpdateIntervalMs": 500
+    },
+    {
+      "text": "import org.apache.spark.ml.classification.DecisionTreeClassificationModel\nimport org.apache.spark.ml.evaluation.MulticlassClassificationEvaluator\nimport org.apache.spark.mllib.evaluation.MulticlassMetrics\n\nval evaluator \u003d new MulticlassClassificationEvaluator()\n  .setLabelCol(\"indexedLabel\")\n  .setPredictionCol(\"prediction\")\n  .setMetricName(\"accuracy\")\n\nval accuracy \u003d evaluator.evaluate(predictions)\nprintln(s\"Test error \u003d ${1.0 - accuracy}\\n\")\n\nval metrics \u003d new MulticlassMetrics(\n  predictions.select(\"indexedLabel\", \"prediction\")\n  .rdd.map(x \u003d\u003e (x.getDouble(0), x.getDouble(1)))\n)\n\nprintln(s\"Confusion matrix:\\n ${metrics.confusionMatrix}\\n\")\n\nval treeModel \u003d model.stages(stageArray.length - 2).asInstanceOf[DecisionTreeClassificationModel]\n\nval featureImportances \u003d treeModel.featureImportances.toArray.zipWithIndex.map(x \u003d\u003e Tuple2(fields(x._2), x._1)).sortWith(_._2 \u003e _._2)\nprintln(\"Feature importances sorted:\")\nfeatureImportances.foreach(x \u003d\u003e println(x._1 + \": \" + x._2))\nprintln()\n\n// Print out the tree with actual column names for features\nvar treeModelString \u003d treeModel.toDebugString\n\nval featureFieldIndexes \u003d categoricalFieldIndexes ++ continuousFieldIndexes\nfor (i \u003c- featureFieldIndexes.indices)\n  treeModelString \u003d treeModelString\n    .replace(\"feature \" + i + \" \", fields(featureFieldIndexes(i)) + \" \")\n\nprintln(s\"Learned classification tree model:\\n $treeModelString\")",
+      "user": "anonymous",
+      "dateUpdated": "2020-03-02 01:55:34.886",
+      "config": {
+        "colWidth": 12.0,
+        "fontSize": 9.0,
+        "enabled": true,
+        "results": {},
+        "editorSetting": {
+          "language": "scala",
+          "editOnDblClick": false,
+          "completionKey": "TAB",
+          "completionSupport": true
+        },
+        "editorMode": "ace/mode/scala"
+      },
+      "settings": {
+        "params": {},
+        "forms": {}
+      },
+      "apps": [],
+      "jobName": "paragraph_1583111463063_626688525",
+      "id": "20200226-192920_1721801072",
+      "dateCreated": "2020-03-02 01:11:03.063",
+      "dateStarted": "2020-03-02 01:48:51.205",
+      "dateFinished": "2020-03-02 01:49:18.817",
+      "status": "FINISHED",
+      "errorMessage": "",
+      "progressUpdateIntervalMs": 500
+    },
+    {
+      "text": "for (i \u003c- featureFieldIndexes.indices)\n  println(s\"feature \" + i + \" -\u003e \" + fields(featureFieldIndexes(i)))",
+      "user": "anonymous",
+      "dateUpdated": "2020-03-02 01:55:31.683",
+      "config": {
+        "colWidth": 12.0,
+        "fontSize": 9.0,
+        "enabled": true,
+        "results": {},
+        "editorSetting": {
+          "language": "scala",
+          "editOnDblClick": false,
+          "completionKey": "TAB",
+          "completionSupport": true
+        },
+        "editorMode": "ace/mode/scala"
+      },
+      "settings": {
+        "params": {},
+        "forms": {}
+      },
+      "apps": [],
+      "jobName": "paragraph_1583111463063_482572980",
+      "id": "20200226-192935_1444829145",
+      "dateCreated": "2020-03-02 01:11:03.063",
+      "dateStarted": "2020-03-02 01:49:19.173",
+      "dateFinished": "2020-03-02 01:49:19.951",
+      "status": "FINISHED",
+      "errorMessage": "",
+      "progressUpdateIntervalMs": 500
+    },
+    {
+      "text": "sqlContext.dropTempTable(\"predictions\")\npredictions.select(\"label\", Seq(\"predictedLabel\" ,\"indexedLabel\", \"prediction\") ++ fields:_*)\n        .createTempView(\"predictions\")",
+      "user": "anonymous",
+      "dateUpdated": "2020-03-02 01:55:27.554",
+      "config": {
+        "colWidth": 12.0,
+        "fontSize": 9.0,
+        "results": {},
+        "enabled": true,
+        "editorSetting": {
+          "language": "scala",
+          "editOnDblClick": false,
+          "completionKey": "TAB",
+          "completionSupport": true
+        },
+        "editorMode": "ace/mode/scala"
+      },
+      "settings": {
+        "params": {},
+        "forms": {}
+      },
+      "apps": [],
+      "jobName": "paragraph_1583111463064_-486334388",
+      "id": "20200226-192952_261527268",
+      "dateCreated": "2020-03-02 01:11:03.064",
+      "dateStarted": "2020-03-02 01:49:20.234",
+      "dateFinished": "2020-03-02 01:49:21.234",
+      "status": "FINISHED",
+      "errorMessage": "",
+      "progressUpdateIntervalMs": 500
+    },
+    {
+      "text": "%sql\nSELECT * FROM predictions LIMIT 10",
+      "user": "anonymous",
+      "dateUpdated": "2020-03-02 01:55:24.802",
+      "config": {
+        "colWidth": 12.0,
+        "fontSize": 9.0,
+        "results": {
+          "0": {
+            "graph": {
+              "mode": "table",
+              "height": 300.0,
+              "optionOpen": false,
+              "setting": {
+                "table": {
+                  "tableGridState": {},
+                  "tableColumnTypeState": {
+                    "names": {
+                      "label": "string",
+                      "predictedLabel": "string",
+                      "indexedLabel": "string",
+                      "prediction": "string",
+                      "age": "string",
+                      "workclass": "string",
+                      "education": "string",
+                      "maritalStatus": "string",
+                      "occupation": "string",
+                      "race": "string",
+                      "sex": "string",
+                      "capitalGain": "string",
+                      "capitalLoss": "string",
+                      "hoursPerWeek": "string",
+                      "nativeCountry": "string"
+                    },
+                    "updated": false
+                  },
+                  "tableOptionSpecHash": "[{\"name\":\"useFilter\",\"valueType\":\"boolean\",\"defaultValue\":false,\"widget\":\"checkbox\",\"description\":\"Enable filter for columns\"},{\"name\":\"showPagination\",\"valueType\":\"boolean\",\"defaultValue\":false,\"widget\":\"checkbox\",\"description\":\"Enable pagination for better navigation\"},{\"name\":\"showAggregationFooter\",\"valueType\":\"boolean\",\"defaultValue\":false,\"widget\":\"checkbox\",\"description\":\"Enable a footer for displaying aggregated values\"}]",
+                  "tableOptionValue": {
+                    "useFilter": false,
+                    "showPagination": false,
+                    "showAggregationFooter": false
+                  },
+                  "updated": false,
+                  "initialized": false
+                }
+              },
+              "commonSetting": {}
+            }
+          }
+        },
+        "enabled": true,
+        "editorSetting": {
+          "language": "sql",
+          "editOnDblClick": false,
+          "completionKey": "TAB",
+          "completionSupport": true
+        },
+        "editorMode": "ace/mode/sql"
+      },
+      "settings": {
+        "params": {},
+        "forms": {}
+      },
+      "apps": [],
+      "jobName": "paragraph_1583111463065_1194986337",
+      "id": "20200226-192956_1768447324",
+      "dateCreated": "2020-03-02 01:11:03.065",
+      "dateStarted": "2020-03-02 01:49:21.452",
+      "dateFinished": "2020-03-02 01:49:22.306",
+      "status": "FINISHED",
+      "errorMessage": "",
+      "progressUpdateIntervalMs": 500
+    },
+    {
+      "text": "sqlContext.dropTempTable(\"wrongPredictions\")\nval wrongPredictions \u003d predictions\n  .select(\"label\", Seq(\"predictedLabel\" ,\"indexedLabel\", \"prediction\") ++ fields:_*)\n  .where(\"indexedLabel !\u003d prediction\").createTempView(\"wrongPredictions\")",
+      "user": "anonymous",
+      "dateUpdated": "2020-03-02 01:55:23.098",
+      "config": {
+        "colWidth": 12.0,
+        "fontSize": 9.0,
+        "results": {},
+        "enabled": true,
+        "editorSetting": {
+          "language": "scala",
+          "editOnDblClick": false,
+          "completionKey": "TAB",
+          "completionSupport": true
+        },
+        "editorMode": "ace/mode/scala"
+      },
+      "settings": {
+        "params": {},
+        "forms": {}
+      },
+      "apps": [],
+      "jobName": "paragraph_1583111463066_181379758",
+      "id": "20200226-193010_464581142",
+      "dateCreated": "2020-03-02 01:11:03.066",
+      "dateStarted": "2020-03-02 01:49:22.506",
+      "dateFinished": "2020-03-02 01:49:23.611",
+      "status": "FINISHED",
+      "errorMessage": "",
+      "progressUpdateIntervalMs": 500
+    },
+    {
+      "text": "%sql\nSELECT * FROM wrongPredictions LIMIT 10",
+      "user": "anonymous",
+      "dateUpdated": "2020-03-02 01:55:19.970",
+      "config": {
+        "colWidth": 12.0,
+        "fontSize": 9.0,
+        "results": {
+          "0": {
+            "graph": {
+              "mode": "table",
+              "height": 300.0,
+              "optionOpen": false,
+              "setting": {
+                "table": {
+                  "tableGridState": {},
+                  "tableColumnTypeState": {
+                    "names": {
+                      "label": "string",
+                      "predictedLabel": "string",
+                      "indexedLabel": "string",
+                      "prediction": "string",
+                      "age": "string",
+                      "workclass": "string",
+                      "education": "string",
+                      "maritalStatus": "string",
+                      "occupation": "string",
+                      "race": "string",
+                      "sex": "string",
+                      "capitalGain": "string",
+                      "capitalLoss": "string",
+                      "hoursPerWeek": "string",
+                      "nativeCountry": "string"
+                    },
+                    "updated": false
+                  },
+                  "tableOptionSpecHash": "[{\"name\":\"useFilter\",\"valueType\":\"boolean\",\"defaultValue\":false,\"widget\":\"checkbox\",\"description\":\"Enable filter for columns\"},{\"name\":\"showPagination\",\"valueType\":\"boolean\",\"defaultValue\":false,\"widget\":\"checkbox\",\"description\":\"Enable pagination for better navigation\"},{\"name\":\"showAggregationFooter\",\"valueType\":\"boolean\",\"defaultValue\":false,\"widget\":\"checkbox\",\"description\":\"Enable a footer for displaying aggregated values\"}]",
+                  "tableOptionValue": {
+                    "useFilter": false,
+                    "showPagination": false,
+                    "showAggregationFooter": false
+                  },
+                  "updated": false,
+                  "initialized": false
+                }
+              },
+              "commonSetting": {}
+            }
+          }
+        },
+        "enabled": true,
+        "editorSetting": {
+          "language": "sql",
+          "editOnDblClick": false,
+          "completionKey": "TAB",
+          "completionSupport": true
+        },
+        "editorMode": "ace/mode/sql"
+      },
+      "settings": {
+        "params": {},
+        "forms": {}
+      },
+      "apps": [],
+      "jobName": "paragraph_1583111463066_-2036972008",
+      "id": "20200226-193028_1014805667",
+      "dateCreated": "2020-03-02 01:11:03.066",
+      "dateStarted": "2020-03-02 01:49:23.860",
+      "dateFinished": "2020-03-02 01:49:25.344",
+      "status": "FINISHED",
+      "errorMessage": "",
+      "progressUpdateIntervalMs": 500
+    },
+    {
+      "text": "// Show the label and all the categorical features mapped to indexes\nval indexedData \u003d new Pipeline()\n  .setStages(indexerArray)\n  .fit(trainingData)\n  .transform(trainingData)\nindexedData.select(\"indexedLabel\", \"label\").distinct().sort(\"indexedLabel\").show()\nshowCategories(indexedData, fields, categoricalFieldIndexes, 100)",
+      "user": "anonymous",
+      "dateUpdated": "2020-03-02 01:55:17.762",
+      "config": {
+        "colWidth": 12.0,
+        "fontSize": 9.0,
+        "enabled": true,
+        "results": {},
+        "editorSetting": {
+          "language": "scala",
+          "editOnDblClick": false,
+          "completionKey": "TAB",
+          "completionSupport": true
+        },
+        "editorMode": "ace/mode/scala"
+      },
+      "settings": {
+        "params": {},
+        "forms": {}
+      },
+      "apps": [],
+      "jobName": "paragraph_1583111463067_540655943",
+      "id": "20200226-193031_1781044189",
+      "dateCreated": "2020-03-02 01:11:03.067",
+      "dateStarted": "2020-03-02 01:49:25.743",
+      "dateFinished": "2020-03-02 01:50:06.797",
+      "status": "FINISHED",
+      "errorMessage": "",
+      "progressUpdateIntervalMs": 500
+    },
+    {
+      "text": "// Partial dependence plots\nval predictionsEducation \u003d predictionsForPartialDependencePlot(predictions.schema, indexedData, testData, model, \"education\")\nval predictionsCapitalLoss \u003d predictionsForPartialDependencePlot(predictions.schema, indexedData, testData, model, \"capitalLoss\")\nval predictionsMaritalStatus \u003d predictionsForPartialDependencePlot(predictions.schema, indexedData, testData, model, \"maritalStatus\")\n\nval predictionsEducationExpanded \u003d expandPredictions(predictionsEducation)\nval predictionsCapitalLossExpanded \u003d expandPredictions(predictionsCapitalLoss)\nval predictionsMaritalStatusExpanded \u003d expandPredictions(predictionsMaritalStatus)",
+      "user": "anonymous",
+      "dateUpdated": "2020-03-02 01:55:13.308",
+      "config": {
+        "colWidth": 12.0,
+        "fontSize": 9.0,
+        "results": {},
+        "enabled": true,
+        "editorSetting": {
+          "language": "scala",
+          "editOnDblClick": false,
+          "completionKey": "TAB",
+          "completionSupport": true
+        },
+        "editorMode": "ace/mode/scala"
+      },
+      "settings": {
+        "params": {},
+        "forms": {}
+      },
+      "apps": [],
+      "jobName": "paragraph_1583111463072_-93208936",
+      "id": "20200226-193051_377286159",
+      "dateCreated": "2020-03-02 01:11:03.072",
+      "dateStarted": "2020-03-02 01:50:07.107",
+      "dateFinished": "2020-03-02 01:51:38.944",
+      "status": "FINISHED",
+      "errorMessage": "",
+      "progressUpdateIntervalMs": 500
+    },
+    {
+      "text": "sqlContext.dropTempTable(\"predictionsEducationExpanded\")\npredictionsEducationExpanded.orderBy($\"score1\".asc).createTempView(\"predictionsEducationExpanded\")",
+      "user": "anonymous",
+      "dateUpdated": "2020-03-02 01:55:10.593",
+      "config": {
+        "colWidth": 12.0,
+        "fontSize": 9.0,
+        "results": {},
+        "enabled": true,
+        "editorSetting": {
+          "language": "scala",
+          "editOnDblClick": false,
+          "completionKey": "TAB",
+          "completionSupport": true
+        },
+        "editorMode": "ace/mode/scala"
+      },
+      "settings": {
+        "params": {},
+        "forms": {}
+      },
+      "apps": [],
+      "jobName": "paragraph_1583111463073_1795394205",
+      "id": "20200226-193115_1893341605",
+      "dateCreated": "2020-03-02 01:11:03.073",
+      "dateStarted": "2020-03-02 01:51:39.177",
+      "dateFinished": "2020-03-02 01:51:40.663",
+      "status": "FINISHED",
+      "errorMessage": "",
+      "progressUpdateIntervalMs": 500
+    },
+    {
+      "text": "sqlContext.dropTempTable(\"predictionsCapitalLossExpanded\")\npredictionsCapitalLossExpanded.orderBy($\"capitalLoss\".asc).createTempView(\"predictionsCapitalLossExpanded\")",
+      "user": "anonymous",
+      "dateUpdated": "2020-03-02 01:55:07.705",
+      "config": {
+        "colWidth": 12.0,
+        "fontSize": 9.0,
+        "results": {},
+        "enabled": true,
+        "editorSetting": {
+          "language": "scala",
+          "editOnDblClick": false,
+          "completionKey": "TAB",
+          "completionSupport": true
+        },
+        "editorMode": "ace/mode/scala"
+      },
+      "settings": {
+        "params": {},
+        "forms": {}
+      },
+      "apps": [],
+      "jobName": "paragraph_1583111463073_1337011626",
+      "id": "20200226-193057_1243065354",
+      "dateCreated": "2020-03-02 01:11:03.073",
+      "dateStarted": "2020-03-02 01:51:40.820",
+      "dateFinished": "2020-03-02 01:51:43.040",
+      "status": "FINISHED",
+      "errorMessage": "",
+      "progressUpdateIntervalMs": 500
+    },
+    {
+      "text": "sqlContext.dropTempTable(\"predictionsMaritalStatusExpanded\")\npredictionsMaritalStatusExpanded.orderBy($\"score1\".asc).createTempView(\"predictionsMaritalStatusExpanded\")",
+      "user": "anonymous",
+      "dateUpdated": "2020-03-02 01:55:05.580",
+      "config": {
+        "colWidth": 12.0,
+        "fontSize": 9.0,
+        "results": {},
+        "enabled": true,
+        "editorSetting": {
+          "language": "scala",
+          "editOnDblClick": false,
+          "completionKey": "TAB",
+          "completionSupport": true
+        },
+        "editorMode": "ace/mode/scala"
+      },
+      "settings": {
+        "params": {},
+        "forms": {}
+      },
+      "apps": [],
+      "jobName": "paragraph_1583111463074_1677726259",
+      "id": "20200226-193120_2088999730",
+      "dateCreated": "2020-03-02 01:11:03.076",
+      "dateStarted": "2020-03-02 01:51:43.249",
+      "dateFinished": "2020-03-02 01:51:44.077",
+      "status": "FINISHED",
+      "errorMessage": "",
+      "progressUpdateIntervalMs": 500
+    },
+    {
+      "text": "%sql\nSELECT education, avg(score1) FROM predictionsEducationExpanded\nGROUP BY education\nORDER BY avg(score1) DESC",
+      "user": "anonymous",
+      "dateUpdated": "2020-03-02 01:55:00.950",
+      "config": {
+        "colWidth": 12.0,
+        "fontSize": 9.0,
+        "results": {
+          "0": {
+            "graph": {
+              "mode": "multiBarChart",
+              "height": 294.0,
+              "optionOpen": false,
+              "setting": {
+                "table": {
+                  "tableGridState": {},
+                  "tableColumnTypeState": {
+                    "names": {
+                      "education": "string",
+                      "avg(score1)": "string"
+                    },
+                    "updated": false
+                  },
+                  "tableOptionSpecHash": "[{\"name\":\"useFilter\",\"valueType\":\"boolean\",\"defaultValue\":false,\"widget\":\"checkbox\",\"description\":\"Enable filter for columns\"},{\"name\":\"showPagination\",\"valueType\":\"boolean\",\"defaultValue\":false,\"widget\":\"checkbox\",\"description\":\"Enable pagination for better navigation\"},{\"name\":\"showAggregationFooter\",\"valueType\":\"boolean\",\"defaultValue\":false,\"widget\":\"checkbox\",\"description\":\"Enable a footer for displaying aggregated values\"}]",
+                  "tableOptionValue": {
+                    "useFilter": false,
+                    "showPagination": false,
+                    "showAggregationFooter": false
+                  },
+                  "updated": false,
+                  "initialized": false
+                },
+                "lineChart": {
+                  "rotate": {
+                    "degree": "-45"
+                  },
+                  "xLabelStatus": "default"
+                },
+                "stackedAreaChart": {
+                  "rotate": {
+                    "degree": "-45"
+                  },
+                  "xLabelStatus": "default"
+                },
+                "multiBarChart": {
+                  "rotate": {
+                    "degree": "-45"
+                  },
+                  "xLabelStatus": "default"
+                }
+              },
+              "commonSetting": {},
+              "keys": [
+                {
+                  "name": "education",
+                  "index": 0.0,
+                  "aggr": "sum"
+                }
+              ],
+              "groups": [],
+              "values": [
+                {
+                  "name": "avg(score1)",
+                  "index": 1.0,
+                  "aggr": "sum"
+                }
+              ]
+            },
+            "helium": {}
+          }
+        },
+        "enabled": true,
+        "editorSetting": {
+          "language": "sql",
+          "editOnDblClick": false,
+          "completionKey": "TAB",
+          "completionSupport": true
+        },
+        "editorMode": "ace/mode/sql"
+      },
+      "settings": {
+        "params": {
+          "bdtMeta": {
+            "inlay": {
+              "state": {
+                "currentPage": "Chart",
+                "chart": {
+                  "series": [
+                    {
+                      "type": "Line",
+                      "x": {
+                        "column": "education",
+                        "index": 0.0
+                      },
+                      "y": {
+                        "column": "avg(score1)",
+                        "index": 1.0
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "forms": {}
+      },
+      "apps": [],
+      "jobName": "paragraph_1583111463077_1926889302",
+      "id": "20200226-193712_666260146",
+      "dateCreated": "2020-03-02 01:11:03.077",
+      "dateStarted": "2020-03-02 01:51:44.250",
+      "dateFinished": "2020-03-02 01:52:01.303",
+      "status": "FINISHED",
+      "errorMessage": "",
+      "progressUpdateIntervalMs": 500
+    },
+    {
+      "text": "%sql\nSELECT capitalLoss, avg(score1) FROM predictionsCapitalLossExpanded\nGROUP BY capitalLoss\nORDER BY capitalLoss",
+      "user": "anonymous",
+      "dateUpdated": "2020-03-02 01:55:03.938",
+      "config": {
+        "colWidth": 12.0,
+        "fontSize": 9.0,
+        "results": {
+          "0": {
+            "graph": {
+              "mode": "scatterChart",
+              "height": 300.0,
+              "optionOpen": false,
+              "setting": {
+                "table": {
+                  "tableGridState": {},
+                  "tableColumnTypeState": {
+                    "names": {
+                      "age": "string",
+                      "avg(score1)": "string"
+                    },
+                    "updated": false
+                  },
+                  "tableOptionSpecHash": "[{\"name\":\"useFilter\",\"valueType\":\"boolean\",\"defaultValue\":false,\"widget\":\"checkbox\",\"description\":\"Enable filter for columns\"},{\"name\":\"showPagination\",\"valueType\":\"boolean\",\"defaultValue\":false,\"widget\":\"checkbox\",\"description\":\"Enable pagination for better navigation\"},{\"name\":\"showAggregationFooter\",\"valueType\":\"boolean\",\"defaultValue\":false,\"widget\":\"checkbox\",\"description\":\"Enable a footer for displaying aggregated values\"}]",
+                  "tableOptionValue": {
+                    "useFilter": false,
+                    "showPagination": false,
+                    "showAggregationFooter": false
+                  },
+                  "updated": false,
+                  "initialized": false
+                },
+                "multiBarChart": {
+                  "rotate": {
+                    "degree": "-45"
+                  },
+                  "xLabelStatus": "default"
+                },
+                "lineChart": {
+                  "rotate": {
+                    "degree": "-45"
+                  },
+                  "xLabelStatus": "default"
+                }
+              },
+              "commonSetting": {},
+              "keys": [
+                {
+                  "name": "age",
+                  "index": 0.0,
+                  "aggr": "sum"
+                }
+              ],
+              "groups": [],
+              "values": [
+                {
+                  "name": "avg(score1)",
+                  "index": 1.0,
+                  "aggr": "sum"
+                }
+              ]
+            },
+            "helium": {}
+          }
+        },
+        "enabled": true,
+        "editorSetting": {
+          "language": "sql",
+          "editOnDblClick": false,
+          "completionKey": "TAB",
+          "completionSupport": true
+        },
+        "editorMode": "ace/mode/sql"
+      },
+      "settings": {
+        "params": {
+          "bdtMeta": {
+            "inlay": {
+              "state": {
+                "currentPage": "Chart",
+                "chart": {
+                  "series": [
+                    {
+                      "type": "Line",
+                      "x": {
+                        "column": "age",
+                        "index": 0.0
+                      },
+                      "y": {
+                        "column": "avg(score1)",
+                        "index": 1.0
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "forms": {}
+      },
+      "apps": [],
+      "jobName": "paragraph_1583111463076_805025150",
+      "id": "20200226-193139_1790661513",
+      "dateCreated": "2020-03-02 01:11:03.076",
+      "dateStarted": "2020-03-02 01:52:01.602",
+      "dateFinished": "2020-03-02 01:53:32.902",
+      "status": "FINISHED",
+      "errorMessage": "",
+      "progressUpdateIntervalMs": 500
+    },
+    {
+      "text": "%sql\nSELECT maritalStatus, avg(score1) FROM predictionsMaritalStatusExpanded\nGROUP BY maritalStatus\nORDER BY avg(score1) DESC",
+      "user": "anonymous",
+      "dateUpdated": "2020-03-02 01:56:08.866",
+      "config": {
+        "colWidth": 12.0,
+        "fontSize": 9.0,
+        "results": {
+          "0": {
+            "graph": {
+              "mode": "multiBarChart",
+              "height": 300.0,
+              "optionOpen": false,
+              "setting": {
+                "table": {
+                  "tableGridState": {},
+                  "tableColumnTypeState": {
+                    "names": {
+                      "maritalStatus": "string",
+                      "avg(score1)": "string"
+                    },
+                    "updated": false
+                  },
+                  "tableOptionSpecHash": "[{\"name\":\"useFilter\",\"valueType\":\"boolean\",\"defaultValue\":false,\"widget\":\"checkbox\",\"description\":\"Enable filter for columns\"},{\"name\":\"showPagination\",\"valueType\":\"boolean\",\"defaultValue\":false,\"widget\":\"checkbox\",\"description\":\"Enable pagination for better navigation\"},{\"name\":\"showAggregationFooter\",\"valueType\":\"boolean\",\"defaultValue\":false,\"widget\":\"checkbox\",\"description\":\"Enable a footer for displaying aggregated values\"}]",
+                  "tableOptionValue": {
+                    "useFilter": false,
+                    "showPagination": false,
+                    "showAggregationFooter": false
+                  },
+                  "updated": false,
+                  "initialized": false
+                },
+                "multiBarChart": {
+                  "rotate": {
+                    "degree": "-45"
+                  },
+                  "xLabelStatus": "default"
+                }
+              },
+              "commonSetting": {},
+              "keys": [
+                {
+                  "name": "maritalStatus",
+                  "index": 0.0,
+                  "aggr": "sum"
+                }
+              ],
+              "groups": [],
+              "values": [
+                {
+                  "name": "avg(score1)",
+                  "index": 1.0,
+                  "aggr": "sum"
+                }
+              ]
+            },
+            "helium": {}
+          }
+        },
+        "enabled": true,
+        "editorSetting": {
+          "language": "sql",
+          "editOnDblClick": false,
+          "completionKey": "TAB",
+          "completionSupport": true
+        },
+        "editorMode": "ace/mode/sql"
+      },
+      "settings": {
+        "params": {
+          "bdtMeta": {
+            "inlay": {
+              "state": {
+                "currentPage": "Chart",
+                "chart": {
+                  "series": [
+                    {
+                      "type": "Line",
+                      "x": {
+                        "column": "maritalStatus",
+                        "index": 0.0
+                      },
+                      "y": {
+                        "column": "avg(score1)",
+                        "index": 1.0
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "forms": {}
+      },
+      "apps": [],
+      "jobName": "paragraph_1583111463077_-557701953",
+      "id": "20200226-193856_526517495",
+      "dateCreated": "2020-03-02 01:11:03.077",
+      "dateStarted": "2020-03-02 01:56:08.993",
+      "dateFinished": "2020-03-02 01:56:27.712",
+      "status": "FINISHED",
+      "errorMessage": "",
+      "progressUpdateIntervalMs": 500
+    }
+  ],
+  "name": "CensusDecisionTreeExample",
+  "id": "2F3UGKD7E",
+  "noteParams": {},
+  "noteForms": {},
+  "angularObjects": {
+    "md:shared_process": [],
+    "sh:shared_process": [],
+    "spark:shared_process": []
+  },
+  "config": {
+    "isZeppelinNotebookCronEnable": false
+  },
+  "info": {}
+}
